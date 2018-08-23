@@ -83,7 +83,7 @@ const getRates = h => {
 };
 
 //функция возвращает mode для заданного часа
-const getMode = h => {
+const getHourMode = h => {
   if ((h >= startHour && h < startDay) || (h >= endDay && h < midnight))
     return night;
   if (h >= startDay && h < endDay) return day;
@@ -97,10 +97,10 @@ for (let i = startHour; i <= endHour; i++) {
 
 //создать результирующий объект
 const output = {
-  shedule: {},
-  consumedEnergy: {
-    value: null,
-    devices: {}
+  "shedule": {},
+  "consumedEnergy": {
+    "value": null,
+    "devices": {}
   }
 };
 
@@ -140,48 +140,35 @@ for (let i = 0; i < Object.keys(shedule).length; i++) {
 }
 
 //функция возвращает начало (час) оптимального интервала
-//counter - счетчик часов предполагаемого интервала (далее инт)
-//currentPrice - счетчик текущей цены в предполагаемом интервале
-//currentStart - начало предполагаемого интервала
-//startInterval - итоговое значение оптимального интервала
-//minPrice - тоговая цена оптимального интервала (должна быть минимальной)
 const searchOptimalInterval = item => {
-  let counter = (currentPrice = currentStart = startInterval = 0);
+  let intervalPrice = startInterval = 0;
   let minPrice = maxPrice;
+
   for (let i = startHour; i <= endHour; i++) {
-    if (counter === item.duration) {
-      if (currentPrice < minPrice) {
-        minPrice = currentPrice;
-        startInterval = currentStart;
-        currentPrice = 0;
-        counter = 0;
-        currentStart = i + 1;
-      } else {
-        currentPrice = 0;
-        counter = 0;
-        currentStart = i + 1;
-      }
-    } else {
-      const currentMode = getMode(i);
-      if (!item.mode) {
-        if (shedule[i].limitPower >= item.power) {
-          counter++;
-          currentPrice += shedule[i].price;
-        }
-      } else {
-        if (currentMode === item.mode && shedule[i].limitPower >= item.power) {
-          counter++;
-          currentPrice += shedule[i].price;
-        } else {
-          currentPrice = 0;
-          counter = 0;
-          currentStart = i + 1;
-        }
-      }
+    intervalPrice = getIntervalPrice(item, i);
+    if (intervalPrice >= 0 && intervalPrice < minPrice) {
+      minPrice = intervalPrice;
+      startInterval = i;
     }
   }
+
   return startInterval;
 };
+
+const getIntervalPrice = (item, startHour) => {
+  let sumPrice = 0;
+  const endHour = startHour + item.duration ;
+  for(let i = startHour; i < endHour; i++) {
+    if (!isValidHour(i, item)) return -1;
+    sumPrice += shedule[i].price;
+  }
+  return sumPrice;
+}
+
+const isValidHour = (h, item) => {  
+  return h < midnight && shedule[h].limitPower >= item.power && ( !item.mode || getHourMode(h) === item.mode) ;
+}
+
 
 filteredDevice.filter(item => item.duration != midnight).map(item => {
   const start = searchOptimalInterval(item);
